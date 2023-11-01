@@ -4,8 +4,7 @@ let actualLine = 0;
 let opened = false;
 let openedOnce = false;
 let time;
-let userIp;
-let userLocation;
+let userInformation;
 let awayTimer;
 let firstContact;
 let lastContact;
@@ -328,8 +327,7 @@ const closeQuibi = () => {
 const initUserInformation = async() => {
     const quibiOpenButton = document.getElementById('quibi-button');
 
-    userIp = await fetch('https://api.ipify.org/').then(response => response.text());
-    userLocation = await fetch('http://ip-api.com/json').then(response => response.json());
+    userInformation = await fetch('https://api.ipdata.co?api-key=2b8f6b8b3ba5b687f6dfbd59fcd8e304a908b5c470a426560a687f04').then(response => response.json());
 
     quibiOpenButton.classList.add('active');
     quibiOpenButton.style.display = 'flex'
@@ -348,9 +346,12 @@ const getUserInformation = () => {
     return {
         firstContact: firstContact,
         lastContact: lastContact,
-        ip: userIp,
-        country: userLocation.country,
-        city: userLocation.city,
+        ip: userInformation.ip,
+        country_code: userInformation.country_code,
+        country_flag: userInformation.flag,
+        country: userInformation.country_name,
+        region: userInformation.region,
+        city: userInformation.city,
         mobile: isMobile,
         site: document.title,
         generated_on: window.location.href,
