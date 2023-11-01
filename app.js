@@ -4,6 +4,11 @@ let actualLine = 0;
 let opened = false;
 let openedOnce = false;
 let time;
+let userIp;
+let userLocation;
+let awayTimer;
+let firstContact;
+let lastContact;
 var audio = new Audio('./media/pop.mp3');
 audio.volume = .8
 
@@ -14,7 +19,6 @@ audio.volume = .8
 // Bot Configuration
 
 const BOT_NAME = 'Tizify Bot'
-
 const COLOR_THEME = '#8335fd';
 const ICON = './media/tizify.svg'
 
@@ -36,25 +40,32 @@ let DIALOGUE = function(){
             message: `  <p>¡Saludos! Soy <strong>${BOT_NAME}</strong>, tu asistente virtual. Estoy aquí para brindarte ayuda y resolver tus consultas.
                         <br><br>
                         ¿En qué puedo asistirte hoy? 👋 </p>`,
+            required: true,
         },
         {
             message: `  <p>Sera un placer ayudarte. 😊 ¿Cuál es tu nombre?</p>`,
             validation: "NAME",
             variable: "NAME",
+            required: true,
         },
         {
             message: `  <p>Un gusto ${DIALOGUE_VARIABLES['NAME']}. 🤝 ¿Cuál es tu correo electrónico?</p>`,
             validation: "EMAIL",
             variable: "EMAIL",
+            required: true,
         },
         {
             message: `  <p>🤲 Excelente, en breve un miembro del equipo estará atendiendo tu consulta a través del correo electrónico. <br><br> ¿Deseás añadir algo más? 📧</p>`,
+            send: true,
+            required: false,
         },
         {
             message: `  <p>Perfecto, en momentos nos estaremos comunicando con usted.</p>`,
+            required: false,
         },
         {
             message: `  <p>Muchas gracias por comunicarte! 🤲</p>`,
+            required: false,
         }
     ]
 }
@@ -64,6 +75,8 @@ const DIALOGUE_ERRORS = {
     NAME: `<p>Parece que tu nombre no es valido, intenta reescribirlo nuevamente.</p>`,
     EMAIL: `<p>Oops, no parece un email valido. Intenta nuevamente.</p>`,
 }
+
+const AWAY_DIALOGUE = `¿Aún sigues ahí?`
 
 // --------------------------------
 
@@ -111,6 +124,10 @@ window.addEventListener('load', () => {
             sendClientMessage(quibiInput.value);
         }
     });
+
+
+    initUserInformation();
+
 })
 
 
@@ -124,12 +141,17 @@ const sendBotMessage = (body) => {
     typeSubmit.disabled = true;
     messageBuble.classList.add('quibi-messages-bubble', 'typing', 'received');
 
-    messageBuble.innerHTML = `
-                <header class="quibi-messages-bubble--header">
-                    <img src="${ICON}" width="20" height="20" alt="">
-                    <h4>${BOT_NAME}</h4>
-                    <p class="time">${time}</p>
-                </header>
+    if(messages.length == 0 || (messages.length >= 1 && messages[messages.length - 1].sender !== BOT_NAME)){
+        messageBuble.innerHTML = `
+        <header class="quibi-messages-bubble--header">
+            <img src="${ICON}" width="20" height="20" alt="">
+            <h4>${BOT_NAME}</h4>
+            <p class="time">${time}</p>
+        </header>`;
+    }
+
+    messageBuble.innerHTML += `
+                
                 <div class="quibi-messages-bubble--content">
                     <span></span>
                     <span></span>
@@ -148,7 +170,7 @@ const sendBotMessage = (body) => {
             messageBuble = document.createElement('div');
             messageBuble.classList.add('quibi-messages-bubble', 'received');
 
-            if(messages.length == 0 || (messages.length >= 1 && messages[messages.length - 1].sender)){
+            if(messages.length == 0 || (messages.length >= 1 && messages[messages.length - 1].sender !== BOT_NAME)){
                 messageBuble.innerHTML = `
                     <header class="quibi-messages-bubble--header">
                         <img src="${ICON}" width="20" height="20" alt="">
@@ -164,7 +186,7 @@ const sendBotMessage = (body) => {
 
 
             messages.push({
-                sender: false,
+                sender: BOT_NAME,
                 message: body
             });
     
@@ -172,15 +194,34 @@ const sendBotMessage = (body) => {
             messagesContainer.scrollTo(0, messagesContainer.scrollHeight);
 
             typeSubmit.disabled = false;
+
+            if(DIALOGUE()[stage].required && !awayTimer){
+                awayTimer = setTimeout(() => {
+                    sendBotMessage(AWAY_DIALOGUE)
+                }, (120 * 1000));
+            }
+            
         }, 1500);
     }, 500);
+
+    if(DIALOGUE()[stage].send){
+        console.log('------[ SEND MAIL ]-----')
+        console.log(updateUserInformation())
+        console.log(response)
+        console.log('------------------------')
+    }
 
 }
 
 const sendClientMessage = (body) => {
+    clearTimeout(awayTimer);
+    awayTimer = null;
+    
     const quibiInput = document.getElementById('quibi-type-input');
     const messagesContainer = document.getElementById('quibi-messages');
     const typeSubmit = document.getElementById('quibi-type-submit');
+
+    body = body.trim();
 
     let text = document.createTextNode(body);
     let messageBuble = document.createElement('div');
@@ -199,7 +240,7 @@ const sendClientMessage = (body) => {
         </header>`;
 
     messages.push({
-        sender: true,
+        sender: 'Client',
         message: text.data,
     });
 
@@ -217,11 +258,19 @@ const sendClientMessage = (body) => {
         response.push(text.data);
         stage++;
 
-        if(DIALOGUE()[stage]) sendBotMessage(DIALOGUE()[stage].message, DIALOGUE()[stage].validation, DIALOGUE()[stage].variable);
-        else console.log(response);
+        if(DIALOGUE()[stage]) sendBotMessage(DIALOGUE()[stage].message);
     }
 
-    if(stage == DIALOGUE.length - 2) console.log(response);
+    if(response.length == 1){
+        console.log(getUserInformation())
+        console.log(response)
+    }
+    else{
+        console.log(updateUserInformation());
+        console.log(response)
+    }
+
+
     typeSubmit.disabled = true;
 }
 
@@ -274,4 +323,55 @@ const closeQuibi = () => {
     quibiOpenButton.classList.add('active');
     quibiOpenButton.style.display = 'flex'
     quibiOpenButton.style.animation = 'moveUp .4s forwards .3s'    
+}
+
+const initUserInformation = async() => {
+    const quibiOpenButton = document.getElementById('quibi-button');
+
+    userIp = await fetch('https://api.ipify.org/').then(response => response.text());
+    userLocation = await fetch('http://ip-api.com/json').then(response => response.json());
+
+    quibiOpenButton.classList.add('active');
+    quibiOpenButton.style.display = 'flex'
+    quibiOpenButton.style.animation = 'moveUp .4s forwards .3s'
+}
+
+const getUserInformation = () => {
+    let date = new Date();
+    firstContact = lastContact = {
+        date: date.getDate() + '/' + (date.getMonth() + 1) + '/' + date.getFullYear(),
+        time: date.toLocaleTimeString('en-US', { hourCycle: 'h23' }).slice(0,5)
+    }
+
+    let isMobile = checkMobileDevice();
+
+    return {
+        firstContact: firstContact,
+        lastContact: lastContact,
+        ip: userIp,
+        country: userLocation.country,
+        city: userLocation.city,
+        mobile: isMobile,
+        site: document.title,
+        generated_on: window.location.href,
+        browser: navigator.userAgent,
+    }
+}
+
+const updateUserInformation = () => {
+    let date = new Date();
+    lastContact = {
+        date: date.getDate() + '/' + (date.getMonth() + 1) + '/' + date.getFullYear(),
+        time: date.toLocaleTimeString('en-US', { hourCycle: 'h23' }).slice(0,5)
+    }
+
+    return {
+        lastContact: lastContact,
+    }
+}
+
+
+const checkMobileDevice = () => {
+    const regex = /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    return regex.test(navigator.userAgent);
 }
